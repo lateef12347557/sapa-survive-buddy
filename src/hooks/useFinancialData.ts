@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const STORAGE_KEY = 'sapaflow_data';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 
 interface FinancialData {
   currentBalance: number;
@@ -11,6 +11,7 @@ interface FinancialData {
 interface FinancialState extends FinancialData {
   survivalDays: number;
   status: 'safe' | 'warning' | 'critical';
+  loading: boolean;
 }
 
 const defaultData: FinancialData = {
@@ -20,30 +21,46 @@ const defaultData: FinancialData = {
 };
 
 export const useFinancialData = () => {
-  const [data, setData] = useState<FinancialData>(() => {
-    // Load from localStorage on initial render
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Validate parsed data
-        if (
-          typeof parsed.currentBalance === 'number' &&
-          typeof parsed.dailySpending === 'number' &&
-          typeof parsed.daysRemaining === 'number'
-        ) {
-          return {
-            currentBalance: Math.max(0, parsed.currentBalance),
-            dailySpending: Math.max(0, parsed.dailySpending),
-            daysRemaining: Math.max(1, parsed.daysRemaining),
-          };
-        }
+  const { user } = useAuth();
+  const [data, setData] = useState<FinancialData>(defaultData);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data from database when user is logged in
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.warn('Failed to load saved data:', error);
-    }
-    return defaultData;
-  });
+
+      try {
+        const { data: financialData, error } = await supabase
+          .from('financial_data')
+          .select('current_balance, daily_spending, days_remaining')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching financial data:', error);
+          return;
+        }
+
+        if (financialData) {
+          setData({
+            currentBalance: Number(financialData.current_balance),
+            dailySpending: Number(financialData.daily_spending),
+            daysRemaining: Number(financialData.days_remaining),
+          });
+        }
+      } catch (err) {
+        console.error('Error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
 
   // Calculate derived values
   const survivalDays = data.dailySpending > 0 
@@ -58,27 +75,41 @@ export const useFinancialData = () => {
 
   const status = getStatus(survivalDays === Infinity ? 999 : survivalDays);
 
-  // Persist to localStorage when data changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.warn('Failed to save data:', error);
-    }
-  }, [data]);
-
-  const updateData = useCallback((balance: number, spending: number, days: number) => {
-    setData({
+  const updateData = useCallback(async (balance: number, spending: number, days: number) => {
+    const newData = {
       currentBalance: Math.max(0, balance),
       dailySpending: Math.max(0, spending),
       daysRemaining: Math.max(1, days),
-    });
-  }, []);
+    };
+    
+    setData(newData);
+
+    // Save to database if user is logged in
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('financial_data')
+          .update({
+            current_balance: newData.currentBalance,
+            daily_spending: newData.dailySpending,
+            days_remaining: newData.daysRemaining,
+          })
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error updating financial data:', error);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+      }
+    }
+  }, [user]);
 
   const state: FinancialState = {
     ...data,
     survivalDays: survivalDays === Infinity ? 999 : survivalDays,
     status,
+    loading,
   };
 
   return { ...state, updateData };
