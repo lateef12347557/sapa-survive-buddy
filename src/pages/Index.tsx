@@ -6,8 +6,12 @@ import BalanceCard from '@/components/BalanceCard';
 import SurvivalMeter from '@/components/SurvivalMeter';
 import StatusBadge from '@/components/StatusBadge';
 import InputForm from '@/components/InputForm';
+import ExpenseForm from '@/components/ExpenseForm';
+import TransactionHistory from '@/components/TransactionHistory';
+import BudgetInsights from '@/components/BudgetInsights';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useAuth } from '@/hooks/useAuth';
+import { useTransactions } from '@/hooks/useTransactions';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -21,6 +25,16 @@ const Index = () => {
     loading: dataLoading,
     updateData 
   } = useFinancialData();
+  
+  const {
+    transactions,
+    loading: txLoading,
+    addTransaction,
+    deleteTransaction,
+    getSpendingByCategory,
+    getDailySpending,
+    getTotalSpending,
+  } = useTransactions();
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -78,6 +92,22 @@ const Index = () => {
             dailySpending={dailySpending}
             daysRemaining={daysRemaining}
             onUpdate={updateData}
+          />
+          
+          {/* Expense Form */}
+          <ExpenseForm onSubmit={addTransaction} />
+          
+          {/* Transaction History */}
+          <TransactionHistory 
+            transactions={transactions}
+            onDelete={deleteTransaction}
+          />
+          
+          {/* Budget Insights */}
+          <BudgetInsights
+            categorySpending={getSpendingByCategory()}
+            dailySpending={getDailySpending()}
+            totalSpending={getTotalSpending()}
           />
         </div>
         
