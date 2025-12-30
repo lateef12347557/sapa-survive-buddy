@@ -9,9 +9,14 @@ import InputForm from '@/components/InputForm';
 import ExpenseForm from '@/components/ExpenseForm';
 import TransactionHistory from '@/components/TransactionHistory';
 import BudgetInsights from '@/components/BudgetInsights';
+import RecurringExpenses from '@/components/RecurringExpenses';
+import BudgetLimits from '@/components/BudgetLimits';
+import BudgetAlerts from '@/components/BudgetAlerts';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useRecurringExpenses } from '@/hooks/useRecurringExpenses';
+import { useBudgetLimits } from '@/hooks/useBudgetLimits';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -35,6 +40,25 @@ const Index = () => {
     getDailySpending,
     getTotalSpending,
   } = useTransactions();
+
+  const {
+    recurringExpenses,
+    addRecurringExpense,
+    toggleRecurringExpense,
+    deleteRecurringExpense,
+    getMonthlyTotal,
+  } = useRecurringExpenses();
+
+  const categorySpending = getSpendingByCategory();
+
+  const {
+    budgetLimits,
+    setBudgetLimit,
+    removeBudgetLimit,
+    getBudgetAlerts,
+  } = useBudgetLimits(categorySpending);
+
+  const budgetAlerts = getBudgetAlerts();
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -66,6 +90,9 @@ const Index = () => {
       
       <main className="container px-4 py-6 pb-24">
         <div className="mx-auto max-w-lg space-y-4">
+          {/* Budget Alerts - Show at top when there are warnings */}
+          <BudgetAlerts alerts={budgetAlerts} />
+          
           {/* Balance Card */}
           <BalanceCard 
             balance={currentBalance} 
@@ -103,9 +130,26 @@ const Index = () => {
             onDelete={deleteTransaction}
           />
           
+          {/* Recurring Expenses */}
+          <RecurringExpenses
+            expenses={recurringExpenses}
+            monthlyTotal={getMonthlyTotal()}
+            onAdd={addRecurringExpense}
+            onToggle={toggleRecurringExpense}
+            onDelete={deleteRecurringExpense}
+          />
+          
+          {/* Budget Limits */}
+          <BudgetLimits
+            limits={budgetLimits}
+            alerts={budgetAlerts}
+            onSetLimit={setBudgetLimit}
+            onRemoveLimit={removeBudgetLimit}
+          />
+          
           {/* Budget Insights */}
           <BudgetInsights
-            categorySpending={getSpendingByCategory()}
+            categorySpending={categorySpending}
             dailySpending={getDailySpending()}
             totalSpending={getTotalSpending()}
           />

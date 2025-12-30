@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      budget_limits: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          monthly_limit: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          monthly_limit: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          monthly_limit?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_data: {
         Row: {
           created_at: string
@@ -62,6 +89,42 @@ export type Database = {
           email?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      recurring_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          frequency: string
+          id: string
+          is_active: boolean
+          next_due_date: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          description: string
+          frequency: string
+          id?: string
+          is_active?: boolean
+          next_due_date?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          next_due_date?: string
+          user_id?: string
         }
         Relationships: []
       }
