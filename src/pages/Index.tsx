@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import Header from '@/components/Header';
@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useRecurringExpenses } from '@/hooks/useRecurringExpenses';
 import { useBudgetLimits } from '@/hooks/useBudgetLimits';
+import { calculateTrueBalance, calculateRecurringReserve } from '@/lib/financialUtils';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -60,6 +61,37 @@ const Index = () => {
 
   const budgetAlerts = getBudgetAlerts();
 
+  // Calculate True Balance (after deducting recurring expenses)
+  const trueBalance = useMemo(
+    () => calculateTrueBalance(currentBalance, recurringExpenses, daysRemaining),
+    [currentBalance, recurringExpenses, daysRemaining]
+  );
+
+  // Calculate the reserve for recurring expenses
+  const recurringReserve = useMemo(
+    () => calculateRecurringReserve(currentBalance, recurringExpenses, daysRemaining),
+    [currentBalance, recurringExpenses, daysRemaining]
+  );
+
+  // Calculate true survival days based on true balance
+  const trueSurvivalDays = useMemo(() => {
+    if (dailySpending <= 0) return trueBalance > 0 ? 999 : 0;
+    return Math.floor(trueBalance / dailySpending);
+  }, [trueBalance, dailySpending]);
+
+  // Calculate true status based on true survival days
+  const trueStatus = useMemo((): 'safe' | 'warning' | 'critical' => {
+    if (trueSurvivalDays >= 30) return 'safe';
+    if (trueSurvivalDays >= 7) return 'warning';
+    return 'critical';
+  }, [trueSurvivalDays]);
+
+  // Calculate daily balance for pain level calculation
+  const dailyBalance = useMemo(() => {
+    if (daysRemaining <= 0) return 0;
+    return trueBalance / daysRemaining;
+  }, [trueBalance, daysRemaining]);
+
   // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
@@ -93,24 +125,26 @@ const Index = () => {
           {/* Budget Alerts - Show at top when there are warnings */}
           <BudgetAlerts alerts={budgetAlerts} />
           
-          {/* Balance Card */}
+          {/* Balance Card with True Balance */}
           <BalanceCard 
-            balance={currentBalance} 
-            survivalDays={survivalDays}
-            status={status}
+            balance={currentBalance}
+            trueBalance={trueBalance}
+            recurringReserve={recurringReserve}
+            survivalDays={trueSurvivalDays}
+            status={trueStatus}
           />
           
           {/* Survival Progress */}
           <SurvivalMeter 
-            survivalDays={survivalDays} 
+            survivalDays={trueSurvivalDays} 
             daysRemaining={daysRemaining}
-            status={status}
+            status={trueStatus}
           />
           
           {/* Status Badge */}
           <StatusBadge 
-            survivalDays={survivalDays}
-            status={status}
+            survivalDays={trueSurvivalDays}
+            status={trueStatus}
           />
           
           {/* Input Form */}
@@ -124,10 +158,11 @@ const Index = () => {
           {/* Expense Form */}
           <ExpenseForm onSubmit={addTransaction} />
           
-          {/* Transaction History */}
+          {/* Transaction History with Pain Level */}
           <TransactionHistory 
             transactions={transactions}
             onDelete={deleteTransaction}
+            dailyBalance={dailyBalance}
           />
           
           {/* Recurring Expenses */}
